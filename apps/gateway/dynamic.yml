@@ -1,0 +1,57 @@
+# Traefik Dynamic Configuration
+# NOTE: Routing is now handled via Docker labels in docker-compose.yml
+# This file only contains middleware definitions
+http:
+  routers:
+    # Routers are now defined via Docker labels in docker-compose.yml
+    # This section is kept for reference but routers are disabled
+
+  services:
+    # Customers Service
+    customers-service:
+      loadBalancer:
+        servers:
+          - url: "http://customers-service:8001"
+        healthCheck:
+          path: "/health"
+          interval: "10s"
+          timeout: "3s"
+
+    # Loans Service
+    loans-service:
+      loadBalancer:
+        servers:
+          - url: "http://loans-service:8002"
+        healthCheck:
+          path: "/health"
+          interval: "10s"
+          timeout: "3s"
+
+  middlewares:
+    # Replace /customers with /api/v1/customers before forwarding
+    customers-stripprefix:
+      replacePathRegex:
+        regex: "^/customers(.*)"
+        replacement: "/api/v1/customers$1"
+
+    # Replace /loans with /api/v1/loans before forwarding
+    loans-stripprefix:
+      replacePathRegex:
+        regex: "^/loans(.*)"
+        replacement: "/api/v1/loans$1"
+
+    # Headers for customers service
+    customers-headers:
+      headers:
+        customRequestHeaders:
+          X-Forwarded-Prefix: "/customers"
+        customResponseHeaders:
+          X-Service-Name: "customers-service"
+
+    # Headers for loans service
+    loans-headers:
+      headers:
+        customRequestHeaders:
+          X-Forwarded-Prefix: "/loans"
+        customResponseHeaders:
+          X-Service-Name: "loans-service"

@@ -1,0 +1,11 @@
+node_modules
+dist
+build
+.turbo
+*.egg-info
+__pycache__
+coverage
+.venv
+venv
+
+

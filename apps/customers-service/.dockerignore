@@ -1,0 +1,16 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info
+.mypy_cache
+.ruff_cache
+.venv
+venv
+*.md
+.env
+.env.local
+*.log
+
+

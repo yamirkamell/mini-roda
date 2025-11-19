@@ -1,0 +1,37 @@
+# Simplified Traefik Configuration for Development (without ACME)
+api:
+  dashboard: true
+  insecure: true
+  debug: true
+
+# Entry Points
+entryPoints:
+  web:
+    address: ":80"
+  websecure:
+    address: ":443"
+
+# Providers
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: mini-roda-network
+    watch: true
+  file:
+    filename: /etc/traefik/dynamic/dynamic.yml
+    watch: true
+
+# Logging
+log:
+  level: DEBUG
+  filePath: ""
+
+accessLog: {}
+
+# Global options
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+

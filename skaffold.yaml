@@ -1,0 +1,108 @@
+apiVersion: skaffold/v4beta7
+kind: Config
+metadata:
+  name: mini-roda
+
+build:
+  local:
+    push: false
+    useDocker: true
+  artifacts:
+    # Customers Service
+    - image: mini-roda/customers-service
+      context: .
+      docker:
+        dockerfile: apps/customers-service/Dockerfile
+      sync:
+        manual:
+          - src: 'apps/customers-service/**/*.py'
+            dest: /app
+    
+    # Loans Service
+    - image: mini-roda/loans-service
+      context: .
+      docker:
+        dockerfile: apps/loans-service/Dockerfile
+      sync:
+        manual:
+          - src: 'apps/loans-service/**/*.py'
+            dest: /app
+    
+    # MFE Customers
+    - image: mini-roda/mfe-customers
+      context: .
+      docker:
+        dockerfile: apps/mfe-customers/Dockerfile
+      sync:
+        manual:
+          - src: 'apps/mfe-customers/src/**/*.{ts,tsx,css}'
+            dest: /app/apps/mfe-customers/src
+    
+    # MFE Loans
+    - image: mini-roda/mfe-loans
+      context: .
+      docker:
+        dockerfile: apps/mfe-loans/Dockerfile
+      sync:
+        manual:
+          - src: 'apps/mfe-loans/src/**/*.{ts,tsx,css}'
+            dest: /app/apps/mfe-loans/src
+
+deploy:
+  kustomize:
+    paths:
+      - infra/k8s
+
+portForward:
+  - resourceType: service
+    resourceName: customers-service
+    namespace: roda
+    port: 8001
+    localPort: 8001
+  - resourceType: service
+    resourceName: loans-service
+    namespace: roda
+    port: 8002
+    localPort: 8002
+  - resourceType: service
+    resourceName: mfe-customers
+    namespace: roda
+    port: 5173
+    localPort: 5173
+  - resourceType: service
+    resourceName: mfe-loans
+    namespace: roda
+    port: 5174
+    localPort: 5174
+
+profiles:
+  - name: dev
+    build:
+      local:
+        push: false
+    deploy:
+      kustomize:
+        paths:
+          - infra/k8s
+    portForward:
+      - resourceType: service
+        resourceName: customers-service
+        namespace: roda
+        port: 8001
+        localPort: 8001
+      - resourceType: service
+        resourceName: loans-service
+        namespace: roda
+        port: 8002
+        localPort: 8002
+  
+  - name: prod
+    build:
+      googleCloudBuild:
+        projectId: your-project-id
+    deploy:
+      kubectl:
+        flags:
+          global: ["--namespace=roda"]
+
+

@@ -1,0 +1,43 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mini-roda-ingress
+  namespace: mini-roda
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: mini-roda.local
+    http:
+      paths:
+      - path: /api/customers
+        pathType: Prefix
+        backend:
+          service:
+            name: customers-service
+            port:
+              number: 8001
+      - path: /api/loans
+        pathType: Prefix
+        backend:
+          service:
+            name: loans-service
+            port:
+              number: 8002
+      - path: /customers
+        pathType: Prefix
+        backend:
+          service:
+            name: mfe-customers
+            port:
+              number: 5173
+      - path: /loans
+        pathType: Prefix
+        backend:
+          service:
+            name: mfe-loans
+            port:
+              number: 5174
+
+

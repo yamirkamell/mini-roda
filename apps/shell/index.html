@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mini-Roda - Sistema de Financiamiento</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      // Declara los remotes globales para Module Federation
+      // En desarrollo local, usa localhost. En Docker, usa rutas relativas
+      window.__remotes__ = {
+        mfe_customers: window.location.origin + '/customers/remoteEntry.js',
+        mfe_loans: window.location.origin + '/loans/remoteEntry.js',
+      };
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

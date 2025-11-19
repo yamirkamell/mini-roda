@@ -1,0 +1,8 @@
+# Secrets con datos reales
+secrets-prod.yaml
+secrets-local.yaml
+
+# Kustomize overlays
+overlays/
+
+

@@ -1,0 +1,15 @@
+{
+  "name": "@mini-roda/gateway",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "docker-compose -f docker-compose.dev.yml up --build",
+    "down": "docker-compose -f docker-compose.dev.yml down",
+    "logs": "docker-compose -f docker-compose.dev.yml logs -f",
+    "build": "echo 'Traefik gateway - no build step required'",
+    "lint": "echo 'Traefik gateway - no lint step'",
+    "format": "echo 'Traefik gateway - no format step'",
+    "clean": "docker-compose -f docker-compose.dev.yml down -v"
+  }
+}
+

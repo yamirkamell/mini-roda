@@ -1,0 +1,20 @@
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: customers-stripprefix
+  namespace: roda
+spec:
+  replacePathRegex:
+    regex: "^/customers/api(.*)"
+    replacement: "/api/v1$1"
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: loans-stripprefix
+  namespace: roda
+spec:
+  replacePathRegex:
+    regex: "^/loans/api(.*)"
+    replacement: "/api/v1$1"
+

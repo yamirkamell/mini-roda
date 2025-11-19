@@ -1,0 +1,44 @@
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: roda-ingressroute
+  namespace: roda
+spec:
+  entryPoints:
+    - web
+  routes:
+    # Customers Service API (higher priority)
+    - match: PathPrefix(`/customers/api`)
+      kind: Rule
+      priority: 10
+      services:
+        - name: customers-service
+          port: 8001
+      middlewares:
+        - name: customers-stripprefix
+          namespace: roda
+    # Loans Service API (higher priority)
+    - match: PathPrefix(`/loans/api`)
+      kind: Rule
+      priority: 10
+      services:
+        - name: loans-service
+          port: 8002
+      middlewares:
+        - name: loans-stripprefix
+          namespace: roda
+    # Customers MFE (lower priority, catch-all)
+    - match: PathPrefix(`/customers`)
+      kind: Rule
+      priority: 1
+      services:
+        - name: mfe-customers
+          port: 5173
+    # Loans MFE (lower priority, catch-all)
+    - match: PathPrefix(`/loans`)
+      kind: Rule
+      priority: 1
+      services:
+        - name: mfe-loans
+          port: 5174
+

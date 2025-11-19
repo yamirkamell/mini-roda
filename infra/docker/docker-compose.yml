@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik-gateway
+    command:
+      - --api.dashboard=true
+      - --api.insecure=true
+      - --entrypoints.web.address=:80
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./../apps/gateway/dynamic.yml:/etc/traefik/dynamic/dynamic.yml:ro
+    networks:
+      - mini-roda-network
+    labels:
+      - "traefik.enable=true"
+
+  customers-service:
+    build:
+      context: ../..
+      dockerfile: apps/customers-service/Dockerfile
+    container_name: customers-service
+    environment:
+      - PORT=8001
+    networks:
+      - mini-roda-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.customers-service.rule=Host(`localhost`) && PathPrefix(`/api/customers`)"
+      - "traefik.http.services.customers-service.loadbalancer.server.port=8001"
+
+  loans-service:
+    build:
+      context: ../..
+      dockerfile: apps/loans-service/Dockerfile
+    container_name: loans-service
+    environment:
+      - PORT=8002
+    networks:
+      - mini-roda-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.loans-service.rule=Host(`localhost`) && PathPrefix(`/api/loans`)"
+      - "traefik.http.services.loans-service.loadbalancer.server.port=8002"
+
+  mfe-customers:
+    build:
+      context: ../..
+      dockerfile: apps/mfe-customers/Dockerfile
+    container_name: mfe-customers
+    networks:
+      - mini-roda-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mfe-customers.rule=Host(`localhost`) && PathPrefix(`/customers`)"
+      - "traefik.http.services.mfe-customers.loadbalancer.server.port=5173"
+
+  mfe-loans:
+    build:
+      context: ../..
+      dockerfile: apps/mfe-loans/Dockerfile
+    container_name: mfe-loans
+    networks:
+      - mini-roda-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mfe-loans.rule=Host(`localhost`) && PathPrefix(`/loans`)"
+      - "traefik.http.services.mfe-loans.loadbalancer.server.port=5174"
+
+networks:
+  mini-roda-network:
+    driver: bridge
+

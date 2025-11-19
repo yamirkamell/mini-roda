@@ -1,0 +1,100 @@
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik-gateway
+    command:
+      - --configfile=/etc/traefik/traefik.yml
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik-simple.yml:/etc/traefik/traefik.yml:ro
+      - ./dynamic.yml:/etc/traefik/dynamic/dynamic.yml:ro
+      - traefik-certs:/etc/traefik/certs
+    networks:
+      - mini-roda-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.localhost`)"
+      - "traefik.http.routers.traefik.entrypoints=web"
+      - "traefik.http.services.traefik.loadbalancer.server.port=8080"
+    restart: unless-stopped
+
+  customers-service:
+    build:
+      context: ../..
+      dockerfile: apps/customers-service/Dockerfile
+    container_name: customers-service
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres:5432/customers_db
+      - PORT=8001
+    networks:
+      - mini-roda-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.customers.rule=PathPrefix(`/customers`)"
+      - "traefik.http.routers.customers.entrypoints=web"
+      - "traefik.http.routers.customers.middlewares=customers-stripprefix"
+      - "traefik.http.services.customers.loadbalancer.server.port=8001"
+      - "traefik.http.middlewares.customers-stripprefix.replacepathregex.regex=^/customers(.*)"
+      - "traefik.http.middlewares.customers-stripprefix.replacepathregex.replacement=/api/v1/customers$$1"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  loans-service:
+    build:
+      context: ../..
+      dockerfile: apps/loans-service/Dockerfile
+    container_name: loans-service
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres:5432/loans_db
+      - PORT=8002
+    networks:
+      - mini-roda-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.loans.rule=PathPrefix(`/loans`)"
+      - "traefik.http.routers.loans.entrypoints=web"
+      - "traefik.http.routers.loans.middlewares=loans-stripprefix"
+      - "traefik.http.services.loans.loadbalancer.server.port=8002"
+      - "traefik.http.middlewares.loans-stripprefix.replacepathregex.regex=^/loans(.*)"
+      - "traefik.http.middlewares.loans-stripprefix.replacepathregex.replacement=/api/v1/loans$$1"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres-dev
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=customers_db
+      - POSTGRES_MULTIPLE_DATABASES=customers_db,loans_db
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh:ro
+    networks:
+      - mini-roda-network
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  traefik-certs:
+  postgres-data:
+
+networks:
+  mini-roda-network:
+    driver: bridge
+

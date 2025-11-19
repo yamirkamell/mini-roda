@@ -1,0 +1,228 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: mini-roda-postgres
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: customers_db
+      POSTGRES_MULTIPLE_DATABASES: customers_db,loans_db
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./apps/gateway/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh:ro
+    networks:
+      - mini-roda-network
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Traefik Gateway
+  traefik:
+    image: traefik:v3.0
+    container_name: mini-roda-traefik
+    command:
+      - --configfile=/etc/traefik/traefik.yml
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./apps/gateway/traefik-simple.yml:/etc/traefik/traefik.yml:ro
+      - ./apps/gateway/dynamic.yml:/etc/traefik/dynamic/dynamic.yml:ro
+      - traefik-certs:/etc/traefik/certs
+    networks:
+      - mini-roda-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.localhost`)"
+      - "traefik.http.routers.traefik.entrypoints=web"
+      - "traefik.http.services.traefik.loadbalancer.server.port=8080"
+    restart: unless-stopped
+
+  # Customers Service
+  customers-service:
+    build:
+      context: .
+      dockerfile: apps/customers-service/Dockerfile
+    container_name: mini-roda-customers-service
+    environment:
+      DATABASE_URL: postgresql://user:password@postgres:5432/customers_db
+      PORT: 8001
+    ports:
+      - "8001:8001"
+    networks:
+      - mini-roda-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--method=GET", "--output-document=-", "http://localhost:8001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "traefik.enable=true"
+      # API routes - use /api/v1/customers directly (no path replacement needed)
+      # Match /api/v1/customers (API endpoint for GET all customers)
+      - "traefik.http.routers.customers-api-exact.rule=PathPrefix(`/api/v1/customers`)"
+      - "traefik.http.routers.customers-api-exact.entrypoints=web"
+      - "traefik.http.routers.customers-api-exact.priority=30"
+      - "traefik.http.routers.customers-api-exact.service=customers-api-exact"
+      - "traefik.http.routers.customers-api-exact.middlewares=customers-headers"
+      - "traefik.http.services.customers-api-exact.loadbalancer.server.port=8001"
+      - "traefik.http.middlewares.customers-headers.headers.customrequestheaders.X-Forwarded-Prefix=/api/v1/customers"
+      - "traefik.http.middlewares.customers-headers.headers.customresponseheaders.X-Service-Name=customers-service"
+      # Swagger/OpenAPI routes without path replacement
+      - "traefik.http.routers.customers-docs.rule=PathPrefix(`/customers/docs`) || PathPrefix(`/customers/redoc`) || PathPrefix(`/customers/openapi.json`)"
+      - "traefik.http.routers.customers-docs.entrypoints=web"
+      - "traefik.http.routers.customers-docs.priority=30"
+      - "traefik.http.routers.customers-docs.middlewares=customers-docs-stripprefix"
+      - "traefik.http.services.customers-docs.loadbalancer.server.port=8001"
+      - "traefik.http.middlewares.customers-docs-stripprefix.replacepathregex.regex=^/customers(.*)"
+      - "traefik.http.middlewares.customers-docs-stripprefix.replacepathregex.replacement=$$1"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Loans Service
+  loans-service:
+    build:
+      context: .
+      dockerfile: apps/loans-service/Dockerfile
+    container_name: mini-roda-loans-service
+    environment:
+      DATABASE_URL: postgresql://user:password@postgres:5432/loans_db
+      PORT: 8002
+    ports:
+      - "8002:8002"
+    networks:
+      - mini-roda-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--method=GET", "--output-document=-", "http://localhost:8002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "traefik.enable=true"
+      # API routes - use /api/v1/loans directly (no path replacement needed)
+      # Match /api/v1/loans (API endpoint for GET all loans)
+      - "traefik.http.routers.loans-api-exact.rule=PathPrefix(`/api/v1/loans`)"
+      - "traefik.http.routers.loans-api-exact.entrypoints=web"
+      - "traefik.http.routers.loans-api-exact.priority=30"
+      - "traefik.http.routers.loans-api-exact.service=loans-api-exact"
+      - "traefik.http.routers.loans-api-exact.middlewares=loans-headers"
+      - "traefik.http.services.loans-api-exact.loadbalancer.server.port=8002"
+      - "traefik.http.middlewares.loans-headers.headers.customrequestheaders.X-Forwarded-Prefix=/api/v1/loans"
+      - "traefik.http.middlewares.loans-headers.headers.customresponseheaders.X-Service-Name=loans-service"
+      # Swagger/OpenAPI routes without path replacement
+      - "traefik.http.routers.loans-docs.rule=PathPrefix(`/loans/docs`) || PathPrefix(`/loans/redoc`) || PathPrefix(`/loans/openapi.json`)"
+      - "traefik.http.routers.loans-docs.entrypoints=web"
+      - "traefik.http.routers.loans-docs.priority=30"
+      - "traefik.http.routers.loans-docs.middlewares=loans-docs-stripprefix"
+      - "traefik.http.services.loans-docs.loadbalancer.server.port=8002"
+      - "traefik.http.middlewares.loans-docs-stripprefix.replacepathregex.regex=^/loans(.*)"
+      - "traefik.http.middlewares.loans-docs-stripprefix.replacepathregex.replacement=$$1"
+      # Vehicles endpoints routing
+      - "traefik.http.routers.vehicles.rule=PathPrefix(`/vehicles`)"
+      - "traefik.http.routers.vehicles.entrypoints=web"
+      - "traefik.http.routers.vehicles.middlewares=vehicles-stripprefix,vehicles-headers"
+      - "traefik.http.services.vehicles.loadbalancer.server.port=8002"
+      - "traefik.http.middlewares.vehicles-stripprefix.replacepathregex.regex=^/vehicles(.*)"
+      - "traefik.http.middlewares.vehicles-stripprefix.replacepathregex.replacement=/api/v1/vehicles$$1"
+      - "traefik.http.middlewares.vehicles-headers.headers.customrequestheaders.X-Forwarded-Prefix=/vehicles"
+      - "traefik.http.middlewares.vehicles-headers.headers.customresponseheaders.X-Service-Name=loans-service"
+      # Vehicle categories endpoints routing
+      - "traefik.http.routers.vehicle-categories.rule=PathPrefix(`/vehicle-categories`)"
+      - "traefik.http.routers.vehicle-categories.entrypoints=web"
+      - "traefik.http.routers.vehicle-categories.middlewares=vehicle-categories-stripprefix,vehicle-categories-headers"
+      - "traefik.http.services.vehicle-categories.loadbalancer.server.port=8002"
+      - "traefik.http.middlewares.vehicle-categories-stripprefix.replacepathregex.regex=^/vehicle-categories(.*)"
+      - "traefik.http.middlewares.vehicle-categories-stripprefix.replacepathregex.replacement=/api/v1/vehicle-categories$$1"
+      - "traefik.http.middlewares.vehicle-categories-headers.headers.customrequestheaders.X-Forwarded-Prefix=/vehicle-categories"
+      - "traefik.http.middlewares.vehicle-categories-headers.headers.customresponseheaders.X-Service-Name=loans-service"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Shell Application (Host) - Punto de entrada principal
+  shell:
+    build:
+      context: .
+      dockerfile: apps/shell/Dockerfile
+    container_name: mini-roda-shell
+    networks:
+      - mini-roda-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.shell.rule=Host(`localhost`) && !PathPrefix(`/api`) && !PathPrefix(`/customers/docs`) && !PathPrefix(`/loans/docs`)"
+      - "traefik.http.routers.shell.entrypoints=web"
+      - "traefik.http.routers.shell.priority=10"
+      - "traefik.http.services.shell.loadbalancer.server.port=3000"
+    depends_on:
+      - mfe-customers
+      - mfe-loans
+    restart: unless-stopped
+
+  # Customers Microfrontend (Module Federation Remote)
+  mfe-customers:
+    build:
+      context: .
+      dockerfile: apps/mfe-customers/Dockerfile
+      args:
+        - VITE_API_BASE_URL=http://localhost
+    container_name: mini-roda-mfe-customers
+    networks:
+      - mini-roda-network
+    labels:
+      - "traefik.enable=true"
+      # Serve remoteEntry.js, assets, and CSS files for Module Federation
+      - "traefik.http.routers.mfe-customers.rule=Host(`localhost`) && (PathPrefix(`/customers/remoteEntry.js`) || PathPrefix(`/customers/assets/`) || PathPrefix(`/customers/style-`))"
+      - "traefik.http.routers.mfe-customers.entrypoints=web"
+      - "traefik.http.routers.mfe-customers.priority=25"
+      - "traefik.http.routers.mfe-customers.middlewares=mfe-customers-stripprefix"
+      - "traefik.http.services.mfe-customers.loadbalancer.server.port=5173"
+      - "traefik.http.middlewares.mfe-customers-stripprefix.replacepathregex.regex=^/customers(.*)"
+      - "traefik.http.middlewares.mfe-customers-stripprefix.replacepathregex.replacement=$$1"
+    restart: unless-stopped
+
+  # Loans Microfrontend (Module Federation Remote)
+  mfe-loans:
+    build:
+      context: .
+      dockerfile: apps/mfe-loans/Dockerfile
+      args:
+        - VITE_API_BASE_URL=http://localhost
+    container_name: mini-roda-mfe-loans
+    networks:
+      - mini-roda-network
+    labels:
+      - "traefik.enable=true"
+      # Serve remoteEntry.js, assets, and CSS files for Module Federation
+      - "traefik.http.routers.mfe-loans.rule=Host(`localhost`) && (PathPrefix(`/loans/remoteEntry.js`) || PathPrefix(`/loans/assets/`) || PathPrefix(`/loans/style-`))"
+      - "traefik.http.routers.mfe-loans.entrypoints=web"
+      - "traefik.http.routers.mfe-loans.priority=25"
+      - "traefik.http.routers.mfe-loans.middlewares=mfe-loans-stripprefix"
+      - "traefik.http.services.mfe-loans.loadbalancer.server.port=5174"
+      - "traefik.http.middlewares.mfe-loans-stripprefix.replacepathregex.regex=^/loans(.*)"
+      - "traefik.http.middlewares.mfe-loans-stripprefix.replacepathregex.replacement=$$1"
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+    driver: local
+  traefik-certs:
+    driver: local
+
+networks:
+  mini-roda-network:
+    driver: bridge
+
+
