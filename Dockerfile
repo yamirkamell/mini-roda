@@ -16,8 +16,8 @@ COPY packages ./packages
 
 RUN corepack enable
 
-# Instalamos dependencias con pnpm preservando lockfiles
-RUN pnpm install --frozen-lockfile
+# Instalamos dependencias (el repo no incluye pnpm-lock.yaml)
+RUN pnpm install --no-frozen-lockfile
 
 # Variable para apuntar las apps frontend al mismo dominio
 ARG VITE_API_BASE_URL=/
