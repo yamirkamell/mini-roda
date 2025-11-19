@@ -2,6 +2,7 @@
 
 import os
 from typing import Generator
+from urllib.parse import urlparse
 
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
@@ -9,8 +10,13 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import settings
 
-# Use DATABASE_URL from environment if available, otherwise use settings
-database_url = os.getenv("DATABASE_URL", settings.database_url)
+database_url = settings.database_url
+
+parsed = urlparse(database_url)
+print(
+    "[customers-service] database connection",
+    f"scheme={parsed.scheme} host={parsed.hostname} port={parsed.port} db={parsed.path}",
+)
 
 engine = create_engine(
     database_url,

@@ -6,6 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.customers import router as customers_router
 from app.core.config import settings
 
+# force rebuild
+
 app = FastAPI(
     title=settings.api_title,
     description=settings.api_description,
