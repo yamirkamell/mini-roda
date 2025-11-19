@@ -7,7 +7,10 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     # Database
-    database_url: str = "postgresql://user:password@localhost:5432/customers_db"
+    database_url: str = os.getenv(
+        "ENV_CUSTOMERS_DATABASE_URL",
+        "postgresql+psycopg://user:password@localhost:5432/customers_db",
+    )
     
     # API
     api_title: str = "Customers Service"
