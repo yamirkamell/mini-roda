@@ -46,9 +46,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PORT=3000 \
     CUSTOMERS_PORT=8001 \
-    LOANS_PORT=8002 \
-    CUSTOMERS_DATABASE_URL="postgresql+psycopg://user:password@localhost:5432/customers_db" \
-    LOANS_DATABASE_URL="postgresql+psycopg://user:password@localhost:5432/loans_db"
+    LOANS_PORT=8002
 
 WORKDIR /app
 
