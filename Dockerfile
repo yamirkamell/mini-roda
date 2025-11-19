@@ -23,6 +23,9 @@ RUN pnpm install --no-frozen-lockfile
 ARG VITE_API_BASE_URL=/
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
+# Construimos librerías compartidas primero
+RUN pnpm --filter @mini-roda/ui build
+
 # Construimos shell y microfrontends
 RUN pnpm --filter shell build \
   && pnpm --filter mfe-customers build \
